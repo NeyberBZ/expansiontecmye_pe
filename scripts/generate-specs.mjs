@@ -1,109 +1,188 @@
 // scripts/generate-specs.mjs
-const PRODUCTS_DIR = './src/content/products';
-const OUTPUT_DIR = './public/specs';
+//
+// Genera un PDF de ficha técnica por cada producto que tenga `specs`
+// en su frontmatter. No depende de Chromium/Puppeteer: dibuja el PDF
+// directamente con pdf-lib, así que corre igual en tu Mac, en CI,
+// o en el cron de un hosting compartido.
 
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
-import puppeteer from 'puppeteer';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-// Asegurar que la carpeta de salida existe
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+const PRODUCTS_DIR = './src/content/products';
+const OUTPUT_DIR = './public/specs';
+
+// Paleta equivalente a la que usaba el diseño HTML anterior
+const ORANGE = rgb(1, 0.31, 0);           // #ff4f00
+const DARK = rgb(0.102, 0.129, 0.149);    // #1a202c
+const HEADER_BG = rgb(0.973, 0.980, 0.988); // #f8fafc
+const LABEL_GRAY = rgb(0.392, 0.455, 0.545); // #64748b
+const BORDER_GRAY = rgb(0.929, 0.945, 0.965); // #edf2f7
+const KEY_COLOR = rgb(0.290, 0.335, 0.404);   // #4a5568
+const FOOTER_GRAY = rgb(0.627, 0.678, 0.745); // #a0aec0
+
+// A4 en puntos (1mm ≈ 2.8346pt)
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+const MARGIN_X = 56;   // ~20mm
+const MARGIN_TOP = 56;
+const MARGIN_BOTTOM = 56;
+const ROW_HEIGHT = 26;
+
+function safeSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/\//g, '-')
+    .replace(/[^a-z0-9]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 async function generatePDFs() {
-  // 1. Si estamos en Vercel, salimos del proceso sin error
-  if (process.env.VERCEL) {
-    console.log('⏭️ Entorno Vercel detectado. Saltando generación de PDFs (GitHub Actions se encarga).');
-    return;
-  }
-
-  // Borra la carpeta de PDFs antes de generar los nuevos para no acumular archivos viejos
   if (fs.existsSync(OUTPUT_DIR)) {
     fs.rmSync(OUTPUT_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const isMac = process.platform === 'darwin';
-  const executablePath = isMac
-    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    : undefined; // En Vercel/Linux se usa el path por defecto de Chromium
+  console.log('🚀 Iniciando generación de PDFs (sin Chromium, vía pdf-lib)...');
 
-  console.log(`🚀 Iniciando generación de PDFs en ${isMac ? 'macOS' : 'Servidor/Linux'}...`);
-
-  const browser = await puppeteer.launch({
-    executablePath,
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
-  const page = await browser.newPage();
-  const files = fs.readdirSync(PRODUCTS_DIR).filter(f => f.endsWith('.md') || f.endsWith('.mdx'));
+  const files = fs
+    .readdirSync(PRODUCTS_DIR)
+    .filter((f) => f.endsWith('.md') || f.endsWith('.mdx'));
 
   for (const file of files) {
     const content = fs.readFileSync(path.join(PRODUCTS_DIR, file), 'utf-8');
     const { data } = matter(content);
 
-    // Ignorar si no tiene especificaciones
     if (!data.specs || data.specs.length === 0) continue;
 
-    // Limpieza de nombre de archivo (reemplaza "/" por "-")
-    const safeTitle = data.title
-      .toLowerCase()
-      .replace(/\//g, '-')
-      .replace(/[^a-z0-9]/gi, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+    const safeTitle = safeSlug(data.title);
 
-    const htmlContent = `
-      <html>
-        <head>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Satoshi:wght@400;700;900&display=swap');
-            body { font-family: 'Satoshi', sans-serif; padding: 40px; color: #1a202c; }
-            .header { border-bottom: 4px solid #ff4f00; padding-bottom: 20px; margin-bottom: 30px; }
-            .brand { color: #ff4f00; font-weight: bold; text-transform: uppercase; font-size: 12px; }
-            h1 { font-size: 32px; margin: 5px 0; font-weight: 900; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { text-align: left; background: #f8fafc; padding: 12px; color: #64748b; font-size: 10px; text-transform: uppercase; }
-            td { padding: 12px; border-bottom: 1px solid #edf2f7; font-size: 14px; }
-            .key { font-weight: bold; width: 30%; color: #4a5568; }
-            .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; color: #a0aec0; padding-bottom: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <span class="brand">${data.brand || 'ExpansionTec'}</span>
-            <h1>Ficha Técnica: ${data.title}</h1>
-          </div>
-          <table>
-            <thead><tr><th>Especificación</th><th>Detalle</th></tr></thead>
-            <tbody>
-              ${data.specs.map(s => `<tr><td class="key">${s.key}</td><td>${s.value}</td></tr>`).join('')}
-            </tbody>
-          </table>
-          <div class="footer">ExpansionTec Lima — Documento oficial generado automáticamente</div>
-        </body>
-      </html>
-    `;
+    const pdfDoc = await PDFDocument.create();
+    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    const pdfPath = path.join(OUTPUT_DIR, `${safeTitle}.pdf`);
+    const tableWidth = PAGE_WIDTH - MARGIN_X * 2;
+    const colSplit = MARGIN_X + tableWidth * 0.32;
 
-    await page.pdf({
-      path: pdfPath,
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20mm', bottom: '20mm', left: '10mm', right: '10mm' }
+    let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    let y = PAGE_HEIGHT - MARGIN_TOP;
+
+    const drawFooter = (p) => {
+      const footerText = 'ExpansionTec Lima — Documento oficial generado automáticamente';
+      const textWidth = fontRegular.widthOfTextAtSize(footerText, 8);
+      p.drawText(footerText, {
+        x: (PAGE_WIDTH - textWidth) / 2,
+        y: 28,
+        size: 8,
+        font: fontRegular,
+        color: FOOTER_GRAY,
+      });
+    };
+
+    const drawTableHeader = (p, startY) => {
+      p.drawRectangle({
+        x: MARGIN_X,
+        y: startY - 18,
+        width: tableWidth,
+        height: 24,
+        color: HEADER_BG,
+      });
+      p.drawText('ESPECIFICACIÓN', {
+        x: MARGIN_X + 10,
+        y: startY - 11,
+        size: 8,
+        font: fontBold,
+        color: LABEL_GRAY,
+      });
+      p.drawText('DETALLE', {
+        x: colSplit,
+        y: startY - 11,
+        size: 8,
+        font: fontBold,
+        color: LABEL_GRAY,
+      });
+      return startY - 34;
+    };
+
+    // --- Encabezado (solo en la primera página) ---
+    const brand = (data.brand || 'ExpansionTec').toUpperCase();
+    page.drawText(brand, {
+      x: MARGIN_X,
+      y,
+      size: 9,
+      font: fontBold,
+      color: ORANGE,
     });
+    y -= 26;
 
+    page.drawText(`Ficha Técnica: ${data.title}`, {
+      x: MARGIN_X,
+      y,
+      size: 22,
+      font: fontBold,
+      color: DARK,
+    });
+    y -= 16;
+
+    page.drawLine({
+      start: { x: MARGIN_X, y },
+      end: { x: PAGE_WIDTH - MARGIN_X, y },
+      thickness: 3,
+      color: ORANGE,
+    });
+    y -= 26;
+
+    y = drawTableHeader(page, y);
+
+    // --- Filas de la tabla ---
+    for (const spec of data.specs) {
+      if (y < MARGIN_BOTTOM + ROW_HEIGHT) {
+        drawFooter(page);
+        page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+        y = PAGE_HEIGHT - MARGIN_TOP;
+        y = drawTableHeader(page, y);
+      }
+
+      page.drawText(String(spec.key ?? ''), {
+        x: MARGIN_X + 10,
+        y,
+        size: 10,
+        font: fontBold,
+        color: KEY_COLOR,
+      });
+      page.drawText(String(spec.value ?? ''), {
+        x: colSplit,
+        y,
+        size: 10,
+        font: fontRegular,
+        color: DARK,
+        maxWidth: PAGE_WIDTH - MARGIN_X - colSplit,
+      });
+
+      y -= 8;
+      page.drawLine({
+        start: { x: MARGIN_X, y },
+        end: { x: PAGE_WIDTH - MARGIN_X, y },
+        thickness: 0.5,
+        color: BORDER_GRAY,
+      });
+      y -= ROW_HEIGHT - 8;
+    }
+
+    drawFooter(page);
+
+    const pdfBytes = await pdfDoc.save();
+    const pdfPath = path.join(OUTPUT_DIR, `${safeTitle}.pdf`);
+    fs.writeFileSync(pdfPath, pdfBytes);
     console.log(`✅ PDF generado: ${pdfPath}`);
   }
 
-  await browser.close();
   console.log('✨ Proceso terminado con éxito.');
 }
 
-generatePDFs().catch(err => {
+generatePDFs().catch((err) => {
   console.error('❌ Error generando PDFs:', err);
   process.exit(1);
 });
