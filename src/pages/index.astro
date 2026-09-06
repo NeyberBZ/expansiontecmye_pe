@@ -1,7 +1,8 @@
 ---
 // src/pages/index.astro
 export const prerender = true;
-import { getCollection, getEntry } from "astro:content";
+
+import { getCollection, getEntry, type CollectionEntry } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import HeroSlider from "../components/home/HeroSlider.astro";
 import CategoryList from "../components/home/CategoryList.astro";
@@ -11,92 +12,116 @@ import StoreSection from "../components/home/StoreSection.astro";
 import BrandList from "../components/home/BrandList.astro";
 import ActivationSection from "../components/home/ActivationSection.astro";
 
-// Productos destacados
-const allProducts = await getCollection(
-  "products",
-  ({ data }: { data: any }) => data.inStock,
-);
-const featured = allProducts
-  .filter((p: any) => p.data.featured && p.data.inStock)
-  .slice(0, 7);
+const FEATURED_LIMIT = 7;
+const CATEGORY_SECTION_LIMIT = 5;
 
-const featuredWithData = await Promise.all(
-  featured.map(async (p: any) => {
-    // CORRECCIÓN: Pasar el nombre de la colección como primer argumento
-    const brand = p.data.brand ? await getEntry("brands", p.data.brand) : null;
-    const category = p.data.category
-      ? await getEntry("categories", p.data.category)
-      : null;
+type Product = CollectionEntry<"products">;
+type Activation = CollectionEntry<"activations">;
 
-    return {
-      ...p,
-      brandName: brand?.data.name ?? "",
-      categoryName: category?.data.name ?? "",
-    };
-  }),
-);
+type HydratedProduct = Product & {
+  brandName: string;
+  categoryName: string;
+};
 
-// Función para procesar datos (opcional, para obtener nombres de marcas/categorías)
-async function hydrateProducts(productList: any[]) {
-  return await Promise.all(
-    productList.map(async (p) => {
-      const brand = p.data.brand
-        ? await getEntry("brands", p.data.brand)
-        : null;
-      return { ...p, brandName: brand?.data.name || "" };
-    }),
-  );
+type HydratedActivation = Activation & {
+  locationNames: string[];
+};
+
+// Resuelve nombre de marca/categoría de un producto, reutilizando un cache
+// en memoria para no repetir getEntry() si varios productos comparten
+// la misma marca o categoría.
+function createProductHydrator() {
+  const brandCache = new Map<string, string>();
+  const categoryCache = new Map<string, string>();
+
+  async function resolveName(
+    collection: "brands" | "categories",
+    id: string,
+    cache: Map<string, string>,
+  ): Promise<string> {
+    if (cache.has(id)) return cache.get(id)!;
+    const entry = await getEntry(collection, id);
+    const name = entry?.data.name ?? "";
+    cache.set(id, name);
+    return name;
+  }
+
+  return async function hydrate(p: Product): Promise<HydratedProduct> {
+    const [brandName, categoryName] = await Promise.all([
+      p.data.brand ? resolveName("brands", p.data.brand, brandCache) : "",
+      p.data.category
+        ? resolveName("categories", p.data.category, categoryCache)
+        : "",
+    ]);
+    return { ...p, brandName, categoryName };
+  };
 }
 
-// 1. Filtrar Celulares
-const smartphones = await hydrateProducts(
-  allProducts.filter((p: any) => p.data.category === "celulares").slice(0, 5),
-);
+async function hydrateActivation(a: Activation): Promise<HydratedActivation> {
+  const locationEntries = await Promise.all(
+    a.data.locations.map((id:any) => getEntry("locations", id)),
+  );
 
-// 2. Filtrar Accesorios
-const accessories = await hydrateProducts(
-  allProducts.filter((p: any) => p.data.category === "accesorios").slice(0, 5),
-);
+  const locationNames: string[] = [];
+  locationEntries.forEach((entry, i) => {
+    if (!entry) {
+      console.warn(
+        `[activations] "${a.id}" referencia una location inexistente: "${a.data.locations[i]}"`,
+      );
+      return;
+    }
+    locationNames.push(entry.data.name);
+  });
 
-// Activaciones próximas
+  return { ...a, locationNames };
+}
+
+const hydrateProduct = createProductHydrator();
+
+// Se muestran todos los productos, con o sin stock: los agotados se marcan
+// visualmente en el componente (badge "Agotado"), en vez de ocultarse.
+const allProducts = await getCollection("products");
+
 const now = new Date();
 const allActivations = await getCollection("activations");
-// console.log("Activaciones sin procesar:", allActivations); // Debug: Ver qué datos llegan antes de procesar
-// console.log("Activaciones crudas:", allActivations); // Debug: Ver qué datos llegan
-
-const activationsWithLocation = await Promise.all(
-  allActivations
-    .filter((a: any) => {
-      // Filtramos por publicadas, que no hayan vencido y que tengan el nuevo formato de array
-      const isPublished = a.data.isPublished;
-      const hasNotEnded = new Date(a.data.endDate) > now;
-      const hasLocations = Array.isArray(a.data.locations);
-      return isPublished && hasNotEnded && hasLocations;
-    })
-    .map(async (a: any) => {
-      // Recuperamos los objetos completos de cada sucursal vinculada
-      const locationEntries = await Promise.all(
-        a.data.locations.map((id: string) => getEntry("locations", id)),
-      );
-
-      return {
-        ...a,
-        // Guardamos solo los nombres para el componente
-        locationNames: locationEntries
-          .filter((entry) => entry !== undefined)
-          .map((l: any) => l.data.name),
-      };
-    }),
+const upcomingActivations = allActivations.filter(
+  (a) =>
+    a.data.isPublished &&
+    new Date(a.data.endDate) > now &&
+    Array.isArray(a.data.locations),
 );
 
-// Ordenamos: las más cercanas a empezar van primero
+// Destacados: primero los que tienen stock, luego los agotados, para no
+// promocionar como prioridad algo que no se puede comprar ahora mismo.
+const featuredCandidates = allProducts
+  .filter((p) => p.data.featured)
+  .sort((a, b) => Number(b.data.inStock) - Number(a.data.inStock))
+  .slice(0, FEATURED_LIMIT);
+
+const smartphoneCandidates = allProducts
+  .filter((p) => p.data.category === "celulares")
+  .sort((a, b) => Number(b.data.inStock) - Number(a.data.inStock))
+  .slice(0, CATEGORY_SECTION_LIMIT);
+
+const accessoryCandidates = allProducts
+  .filter((p) => p.data.category === "accesorios")
+  .sort((a, b) => Number(b.data.inStock) - Number(a.data.inStock))
+  .slice(0, CATEGORY_SECTION_LIMIT);
+
+const [featuredWithData, smartphones, accessories, activationsWithLocation, locations] =
+  await Promise.all([
+    Promise.all(featuredCandidates.map(hydrateProduct)),
+    Promise.all(smartphoneCandidates.map(hydrateProduct)),
+    Promise.all(accessoryCandidates.map(hydrateProduct)),
+    Promise.all(upcomingActivations.map(hydrateActivation)),
+    getCollection("locations", (l) => l.data.isActive),
+  ]);
+
+// Las más próximas a comenzar van primero
 activationsWithLocation.sort(
   (a, b) =>
     new Date(a.data.startDate).getTime() - new Date(b.data.startDate).getTime(),
 );
-
-// Sucursales activas
-const locations = await getCollection("locations", (l: any) => l.data.isActive);
 ---
 
 <BaseLayout

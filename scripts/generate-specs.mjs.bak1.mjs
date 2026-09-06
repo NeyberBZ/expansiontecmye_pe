@@ -2,9 +2,8 @@
 //
 // Genera un PDF de ficha técnica por cada producto que tenga `specs`
 // en su frontmatter, con layout de cuadrícula (5 columnas por fila),
-// imitando el diseño de infografía: imagen grande a la izquierda, título
-// arriba, y tarjetas de especificación en grid (fondo gris, borde
-// redondeado) a la derecha/abajo.
+// imitando el diseño de infografía: imagen a la izquierda, título arriba,
+// y tarjetas de especificación en grid a la derecha/abajo.
 //
 // No depende de Chromium/Puppeteer: dibuja el PDF directamente con
 // pdf-lib, así que corre igual en tu Mac, en CI, o en el cron de un
@@ -26,15 +25,15 @@ const IMAGE_ROOT = "./public"; // mainImage/images[0] son rutas tipo /uploads/pr
 // Paleta
 const ORANGE = rgb(1, 0.31, 0); // #ff4f00
 const DARK = rgb(0.102, 0.129, 0.149); // #1a202c
-const TITLE_BG = rgb(0.973, 0.98, 0.988); // #f8fafc
-const CARD_BG = rgb(0.953, 0.957, 0.965); // #f3f4f6 (gris claro para tarjetas)
+const CARD_BG = rgb(0.973, 0.98, 0.988); // #f8fafc
 const CARD_BORDER = rgb(0.898, 0.914, 0.929); // #e5e8ed
 const LABEL_GRAY = rgb(0.392, 0.455, 0.545); // #64748b
+const KEY_COLOR = rgb(0.29, 0.335, 0.404); // #4a5568
 const FOOTER_GRAY = rgb(0.627, 0.678, 0.745); // #a0aec0
 const WHITE = rgb(1, 1, 1);
 
-// A4 horizontal en puntos
-const PAGE_WIDTH = 841.89;
+// A4 en puntos
+const PAGE_WIDTH = 841.89; // A4 horizontal (landscape), más fiel al diseño de referencia
 const PAGE_HEIGHT = 595.28;
 const MARGIN_X = 36;
 const MARGIN_TOP = 32;
@@ -44,14 +43,7 @@ const COLS = 5;
 const GUTTER_X = 12;
 const GUTTER_Y = 12;
 const CARD_HEIGHT = 78;
-const CARD_PADDING = 8;
-const CARD_RADIUS = 10;
-
-const VALUE_BLOCK_TOP_OFFSET = 34;
-const VALUE_MAX_HEIGHT = 24;
-
-// Imagen del producto más grande (antes 200pt de ancho)
-const IMAGE_COL_WIDTH = 320;
+const CARD_PADDING = 10;
 
 function safeSlug(title) {
   return title
@@ -62,36 +54,12 @@ function safeSlug(title) {
     .replace(/^-|-$/g, "");
 }
 
-function breakLongToken(token, font, size, maxWidth) {
-  const parts = [];
-  let chunk = "";
-  for (const ch of token) {
-    const candidate = chunk + ch;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-      chunk = candidate;
-    } else {
-      if (chunk) parts.push(chunk);
-      chunk = ch;
-    }
-  }
-  if (chunk) parts.push(chunk);
-  return parts;
-}
-
 function wrapText(text, font, size, maxWidth) {
-  const words = String(text).split(/\s+/).filter(Boolean);
+  const words = String(text).split(/\s+/);
   const lines = [];
   let current = "";
 
   for (const word of words) {
-    if (font.widthOfTextAtSize(word, size) > maxWidth) {
-      if (current) {
-        lines.push(current);
-        current = "";
-      }
-      lines.push(...breakLongToken(word, font, size, maxWidth));
-      continue;
-    }
     const candidate = current ? `${current} ${word}` : word;
     if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
       current = candidate;
@@ -104,28 +72,8 @@ function wrapText(text, font, size, maxWidth) {
   return lines;
 }
 
-function fitText(text, font, maxWidth, { maxSize, minSize, maxLines }) {
-  for (let size = maxSize; size >= minSize; size -= 0.5) {
-    const lines = wrapText(text, font, size, maxWidth);
-    if (lines.length <= maxLines) {
-      return { lines, size };
-    }
-  }
-
-  const size = minSize;
-  const lines = wrapText(text, font, size, maxWidth).slice(0, maxLines);
-  const lastIndex = lines.length - 1;
-  let last = lines[lastIndex] ?? "";
-  while (
-    last.length > 1 &&
-    font.widthOfTextAtSize(`${last}…`, size) > maxWidth
-  ) {
-    last = last.slice(0, -1);
-  }
-  lines[lastIndex] = `${last}…`;
-  return { lines, size };
-}
-
+// Ícono vectorial simple según palabras clave del "key" de la spec.
+// Evita depender de archivos externos: son formas dibujadas con pdf-lib.
 function drawSpecIcon(page, key, cx, cy) {
   const k = key.toLowerCase();
   const r = 8;
@@ -137,6 +85,7 @@ function drawSpecIcon(page, key, cx, cy) {
       width: r * 2,
       height: r * 1.4,
       color: ORANGE,
+      borderRadius: 2,
     });
   } else if (k.includes("cámara") || k.includes("camara")) {
     page.drawCircle({ x: cx, y: cy, size: r * 0.9, color: ORANGE });
@@ -164,6 +113,7 @@ function drawSpecIcon(page, key, cx, cy) {
       height: r * 1.5,
       borderColor: ORANGE,
       borderWidth: 1.5,
+      color: undefined,
     });
   } else if (k.includes("procesador") || k.includes("núcleo") || k.includes("nucleo") || k.includes("cpu")) {
     page.drawRectangle({
@@ -184,6 +134,7 @@ function drawSpecIcon(page, key, cx, cy) {
     k.includes("bluetooth") ||
     k.includes("nfc")
   ) {
+    // Barras tipo señal
     for (let i = 0; i < 3; i++) {
       page.drawRectangle({
         x: cx - r + i * 5,
@@ -273,7 +224,9 @@ async function generatePDFs() {
         y: PAGE_HEIGHT - MARGIN_TOP - 40,
         width: PAGE_WIDTH - MARGIN_X * 2,
         height: 40,
-        color: TITLE_BG,
+        color: CARD_BG,
+        // borderColor: CARD_BORDER,
+        // borderWidth: 1,
       });
       const titleText = data.title.toUpperCase();
       const titleSize = 20;
@@ -285,73 +238,61 @@ async function generatePDFs() {
         font: fontBold,
         color: DARK,
       });
-      return PAGE_HEIGHT - MARGIN_TOP - 40 - 16;
+      return PAGE_HEIGHT - MARGIN_TOP - 40 - 16; // y disponible debajo de la barra
     };
 
-    const drawCard = (p, x, yTop, spec, colWidth) => {
+    const drawCard = (p, x, yTop, spec) => {
       p.drawRectangle({
         x,
         y: yTop - CARD_HEIGHT,
-        width: colWidth,
+        width: cardWidth,
         height: CARD_HEIGHT,
-        color: CARD_BG,
+        color: WHITE,
         borderColor: CARD_BORDER,
         borderWidth: 1,
-        borderRadius: CARD_RADIUS,
       });
 
-      const iconCx = x + colWidth / 2;
+      const iconCx = x + cardWidth / 2;
       const iconCy = yTop - 16;
       drawSpecIcon(p, String(spec.key ?? ""), iconCx, iconCy);
 
-      const maxTextWidth = colWidth - CARD_PADDING * 2;
-
       const valueText = String(spec.value ?? "");
-      const { lines: valueLines, size: valueSize } = fitText(
-        valueText,
-        fontBold,
-        maxTextWidth,
-        { maxSize: 11, minSize: 7, maxLines: 2 }
-      );
+      const valueSize = 12;
+      const maxTextWidth = cardWidth - CARD_PADDING * 2;
+      const valueLines = wrapText(valueText, fontBold, valueSize, maxTextWidth).slice(0, 2);
 
-      const valueLineHeight = valueSize + 2;
-      const valueBlockTop = yTop - VALUE_BLOCK_TOP_OFFSET;
-      let valueY = valueBlockTop;
+      let valueY = yTop - 34;
       for (const line of valueLines) {
         const lineWidth = fontBold.widthOfTextAtSize(line, valueSize);
         p.drawText(line, {
-          x: x + (colWidth - lineWidth) / 2,
+          x: x + (cardWidth - lineWidth) / 2,
           y: valueY,
           size: valueSize,
           font: fontBold,
           color: DARK,
         });
-        valueY -= valueLineHeight;
+        valueY -= 13;
       }
 
       const keyText = String(spec.key ?? "");
-      const { lines: keyLines, size: keySize } = fitText(
-        keyText,
-        fontRegular,
-        maxTextWidth,
-        { maxSize: 8, minSize: 6, maxLines: 2 }
-      );
-
-      const keyLineHeight = keySize + 2;
-      let keyY = valueBlockTop - VALUE_MAX_HEIGHT;
+      const keySize = 8;
+      const keyLines = wrapText(keyText, fontRegular, keySize, maxTextWidth).slice(0, 2);
+      let keyY = valueY - 4;
       for (const line of keyLines) {
         const lineWidth = fontRegular.widthOfTextAtSize(line, keySize);
         p.drawText(line, {
-          x: x + (colWidth - lineWidth) / 2,
+          x: x + (cardWidth - lineWidth) / 2,
           y: keyY,
           size: keySize,
           font: fontRegular,
           color: LABEL_GRAY,
         });
-        keyY -= keyLineHeight;
+        keyY -= 10;
       }
     };
 
+    // --- Layout de imagen (solo primera página) ---
+    const IMAGE_COL_WIDTH = 200;
     const specsStartXFirstPage = embeddedImage
       ? MARGIN_X + IMAGE_COL_WIDTH + 20
       : MARGIN_X;
@@ -362,13 +303,13 @@ async function generatePDFs() {
 
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
 
-    page.drawText((data.brand || "ExpansionTec").toUpperCase(), {
-      x: MARGIN_X,
-      y: PAGE_HEIGHT - MARGIN_TOP + 6,
-      size: 9,
-      font: fontBold,
-      color: ORANGE,
-    });
+    // page.drawText((data.brand || "ExpansionTec").toUpperCase(), {
+    //   x: MARGIN_X,
+    //   y: PAGE_HEIGHT - MARGIN_TOP + 6,
+    //   size: 9,
+    //   font: fontBold,
+    //   color: ORANGE,
+    // });
 
     let y = drawTitleBar(page);
 
@@ -390,12 +331,14 @@ async function generatePDFs() {
       });
     }
 
+    // --- Grid de especificaciones con paginación ---
     const specs = data.specs;
     let specIndex = 0;
     let colIndex = 0;
     let rowTopY = y;
     let currentCardWidth = cardWidthFirstPage;
     let currentStartX = specsStartXFirstPage;
+    let isFirstPage = true;
 
     while (specIndex < specs.length) {
       if (rowTopY - CARD_HEIGHT < MARGIN_BOTTOM + 24) {
@@ -412,15 +355,17 @@ async function generatePDFs() {
         currentCardWidth = cardWidth;
         currentStartX = MARGIN_X;
         colIndex = 0;
+        isFirstPage = false;
       }
 
       const x = currentStartX + colIndex * (currentCardWidth + GUTTER_X);
-      drawCard(page, x, rowTopY, specs[specIndex], currentCardWidth);
+      drawCard(page, x, rowTopY, specs[specIndex]);
 
       specIndex++;
       colIndex++;
 
-      if (colIndex >= COLS) {
+      const colsInRow = isFirstPage ? COLS : COLS;
+      if (colIndex >= colsInRow) {
         colIndex = 0;
         rowTopY -= CARD_HEIGHT + GUTTER_Y;
       }

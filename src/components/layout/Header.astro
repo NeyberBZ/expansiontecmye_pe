@@ -2,7 +2,7 @@
 // src/components/layout/Header.astro
 import Icon from "../../components/ui/Icon.astro";
 import CartIcon from "../../components/shop/CartIcon.tsx";
-import ThemeToggle from "../../components/ui/ThemeToggle";
+// import ThemeToggle from "../../components/ui/ThemeToggle";
 const navLinks = [
   { href: "/tienda", label: "Tienda" },
   { href: "/sucursales", label: "Sucursales" },
@@ -137,7 +137,7 @@ const currentPath = Astro.url.pathname;
 
         <CartIcon client:load />
 
-        <ThemeToggle client:load />
+        <!-- <ThemeToggle client:load /> -->
 
         <!-- Hamburguesa mobile -->
         <button

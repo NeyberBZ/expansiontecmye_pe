@@ -14,5 +14,7 @@ yarn-error.log*
 pnpm-debug.log*
 *.tsbuildinfo
 
+public/uploads/optimized/
+
 # Tina CMS
 admin/index.html
