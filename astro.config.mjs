@@ -5,7 +5,7 @@ import sitemap from "@astrojs/sitemap";
 import tina from '@tinacms/astro/integration';
 
 export default defineConfig({
-  site: "https://expansiontecmyepe.pe",
+  site: "https://expansiontecmye.pe",
   output: "static",
 
   integrations: [
