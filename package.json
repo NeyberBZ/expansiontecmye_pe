@@ -22,7 +22,12 @@
     "prepare": "husky",
     "backup:content": "node scripts/backup-content-to-supabase.mjs",
     "backup:media": "node scripts/backup-media-to-supabase.mjs",
-    "backup:full": "npm run backup:content && npm run backup:media"
+    "backup:full": "npm run backup:content && npm run backup:media",
+    "migrate:brand-categories": "node scripts/migrate-brand-categories.mjs",
+    "migrate:brand-categories:write": "node scripts/migrate-brand-categories.mjs",
+    "migrate:products": "node scripts/migrate-products-from-csv.mjs",
+    "migrate:products:write": "node scripts/migrate-products-from-csv.mjs --write",
+    "migrate:products:overwrite": "node scripts/migrate-products-from-csv.mjs --write --overwrite"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.9",

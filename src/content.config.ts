@@ -25,6 +25,10 @@ const brandsCollection = defineCollection({
     name: z.string(),
     logo: z.string().optional(),
     website: z.string().url().optional(),
+    // Una marca puede estar asociada a una o varias categorías.
+    // Los valores deben coincidir con los IDs de src/content/categories/.
+    // default([]) permite migrar las marcas existentes gradualmente.
+    // categories: z.array(z.string()).min(1, "Toda marca debe pertenecer a una categoría"),
   }),
 });
 

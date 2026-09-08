@@ -4,10 +4,10 @@ shortDescription: El mejor equipo de todos los tiempos
 price: 650
 salePrice: 550
 brand: xiaomi
-category: celulares
+category: equipo-celular
 locations:
-  - location: miraflores
-  - location: los-olivos
+  - location: pdv-chosica
+  - location: pdv-cieneguilla
 images:
   - /uploads/products/poco-f8-pro-1.png
   - /uploads/products/poco-f8-pro-2.png

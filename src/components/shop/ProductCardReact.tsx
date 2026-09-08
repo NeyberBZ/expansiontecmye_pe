@@ -39,12 +39,12 @@ export default function ProductCardReact({ product }: { product: Product }) {
             {product.title}
           </h3>
 
-          <div className="flex items-baseline justify-center gap-3">
+          {/* <div className="flex items-baseline justify-center gap-3">
             <span className="text-lg font-medium text-gray-900 dark:text-white">S/ {product.salePrice || product.price}</span>
             {hasDiscount && (
               <span className="text-sm font-medium text-gray-900 dark:text-white/50 line-through">S/ {product.price}</span>
             )}
-          </div>
+          </div> */}
 
           <p className="text-gray-900 dark:text-white text-sm line-clamp-1 text-center">
             {product.shortDescription || "-"}

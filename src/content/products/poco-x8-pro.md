@@ -10,10 +10,11 @@ availableColors:
     hex: '#D5FFE0'
 price: 1899
 salePrice: 1599
-brand: xiaomi
-category: celulares
+brand: realme
+category: equipo-celular
 locations:
-  - location: los-olivos
+  - location: pdv-chosica
+  - location: pdv-cieneguilla
 mainImage: uploads/products/9f5361075924db6653526f45f1fa4db4.webp
 images:
   - /uploads/ba043cad917abaf964b644e419e858ba.png

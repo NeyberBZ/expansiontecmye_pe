@@ -6,7 +6,8 @@ salePrice: 350
 brand: redmi
 category: accesorios
 locations:
-  - location: miraflores
+  - location: pdv-chosica
+  - location: pdv-cieneguilla
 images:
   - /uploads/products/redmi-pad-2-pro-keyboard-1.png
   - /uploads/products/redmi-pad-2-pro-keyboard-2.png

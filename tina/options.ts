@@ -9,20 +9,80 @@ export interface Option {
 
 export const brandOptions: Option[] = [
   {
+    "value": "alcatel",
+    "label": "Alcatel"
+  },
+  {
     "value": "apple",
     "label": "Apple"
+  },
+  {
+    "value": "azumi",
+    "label": "Azumi"
+  },
+  {
+    "value": "claro",
+    "label": "Claro"
+  },
+  {
+    "value": "coolpad",
+    "label": "Coolpad"
+  },
+  {
+    "value": "corn",
+    "label": "Corn"
+  },
+  {
+    "value": "hello",
+    "label": "Hello"
   },
   {
     "value": "honor",
     "label": "Honor"
   },
   {
+    "value": "huawei",
+    "label": "Huawei"
+  },
+  {
+    "value": "ifitec-3000",
+    "label": "Ifitec 3000"
+  },
+  {
+    "value": "ipro",
+    "label": "Ipro"
+  },
+  {
+    "value": "jbl",
+    "label": "Jbl"
+  },
+  {
+    "value": "lg",
+    "label": "Lg"
+  },
+  {
+    "value": "logic",
+    "label": "Logic"
+  },
+  {
     "value": "motorola",
     "label": "Motorola"
   },
   {
+    "value": "nokia",
+    "label": "Nokia"
+  },
+  {
+    "value": "oltech",
+    "label": "Oltech"
+  },
+  {
     "value": "oppo",
     "label": "Oppo"
+  },
+  {
+    "value": "realme",
+    "label": "Realme"
   },
   {
     "value": "redmi",
@@ -33,8 +93,32 @@ export const brandOptions: Option[] = [
     "label": "Samsung"
   },
   {
+    "value": "tcl",
+    "label": "Tcl"
+  },
+  {
+    "value": "tech-tfi0200",
+    "label": "Tech Tfi0200"
+  },
+  {
+    "value": "tmcell",
+    "label": "Tmcell"
+  },
+  {
+    "value": "unonu",
+    "label": "Unonu"
+  },
+  {
+    "value": "vivo",
+    "label": "Vivo"
+  },
+  {
     "value": "xiaomi",
     "label": "Xiaomi"
+  },
+  {
+    "value": "zte",
+    "label": "Zte"
   }
 ];
 
@@ -44,23 +128,35 @@ export const categoryOptions: Option[] = [
     "label": "Accesorios"
   },
   {
-    "value": "celulares",
-    "label": "Celulares"
+    "value": "equipo-celular",
+    "label": "Equipo Celular"
   },
   {
-    "value": "wearables",
-    "label": "Wearables"
+    "value": "router-ifi",
+    "label": "Router IFI"
+  },
+  {
+    "value": "router-olo",
+    "label": "Router OLO"
+  },
+  {
+    "value": "tfi",
+    "label": "TFI"
   }
 ];
 
 export const locationOptions: Option[] = [
   {
-    "value": "los-olivos",
-    "label": "Los Olivos"
+    "value": "pdv-chosica",
+    "label": "Pdv Chosica"
   },
   {
-    "value": "miraflores",
-    "label": "Miraflores"
+    "value": "pdv-cieneguilla",
+    "label": "Pdv Cieneguilla"
+  },
+  {
+    "value": "pdv-lurin",
+    "label": "Pdv Lurin"
   }
 ];
 

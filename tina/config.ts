@@ -51,6 +51,14 @@ export default defineConfig({
           { type: "string", name: "name", label: "Nombre", required: true, searchable: true, isTitle: true },
           { type: "image", name: "logo", label: "Logo" },
           { type: "string", name: "website", label: "Sitio web", searchable: false },
+          {
+            type: "string",
+            name: "categories", // Lo cambiamos a plural para ser consistentes
+            label: "Categorías",
+            list: true, // ✅ Esto permite agregar múltiples sucursales
+            options: categoryOptions,
+            required: true,
+          },
         ],
       },
 

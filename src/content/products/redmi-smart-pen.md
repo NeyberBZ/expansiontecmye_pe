@@ -5,7 +5,8 @@ price: 250
 brand: redmi
 category: accesorios
 locations:
-  - location: miraflores
+  - location: pdv-chosica
+  - location: pdv-cieneguilla
 images:
   - /uploads/products/redmi-smart-pen-1.png
   - /uploads/products/redmi-smart-pen-2.png

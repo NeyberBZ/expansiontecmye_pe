@@ -99,7 +99,7 @@ const featuredCandidates = allProducts
   .slice(0, FEATURED_LIMIT);
 
 const smartphoneCandidates = allProducts
-  .filter((p) => p.data.category === "celulares")
+  .filter((p) => p.data.category === "equipo-celular")
   .sort((a, b) => Number(b.data.inStock) - Number(a.data.inStock))
   .slice(0, CATEGORY_SECTION_LIMIT);
 
