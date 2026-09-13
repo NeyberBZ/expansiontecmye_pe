@@ -14,6 +14,7 @@ category: equipo-celular
 locations:
   - location: pdv-cieneguilla
   - location: pdv-lurin
+mainImage: /uploads/png-transparent-iphone-13.png
 images:
   - /uploads/png-transparent-iphone-13.png
   - /uploads/products/apple-iphone-13-01.jpg
